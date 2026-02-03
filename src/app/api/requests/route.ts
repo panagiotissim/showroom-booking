@@ -8,24 +8,10 @@ function makePublicCode() {
 }
 
 export async function POST(req: Request) {
-  const body = await req.json();
+  try {
+    const body = await req.json();
 
-  const {
-    periodId,
-    date,
-    startTime,
-    endTime,
-    customerName,
-    customerEmail,
-    customerPhone,
-    customerNote,
-  } = body;
-
-  const publicCode = makePublicCode();
-
-  const requestRow = await prisma.request.create({
-    data: {
-      publicCode,
+    const {
       periodId,
       date,
       startTime,
@@ -33,53 +19,85 @@ export async function POST(req: Request) {
       customerName,
       customerEmail,
       customerPhone,
-      customerNote: customerNote || null,
-    },
-  });
+      customerNote,
+    } = body || {};
 
-  // approve/reject tokens
-  const approveRaw = makeToken();
-  const rejectRaw = makeToken();
-  const expiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000);
+    if (!periodId || !date || !startTime || !endTime || !customerName || !customerEmail || !customerPhone) {
+      return NextResponse.json({ ok: false, error: "Missing fields" }, { status: 400 });
+    }
 
-  await prisma.actionToken.createMany({
-    data: [
-      { requestId: requestRow.id, action: "APPROVE", tokenHash: hashToken(approveRaw), expiresAt },
-      { requestId: requestRow.id, action: "REJECT", tokenHash: hashToken(rejectRaw), expiresAt },
-    ],
-  });
+    const publicCode = makePublicCode();
 
-  const baseUrl = process.env.PUBLIC_BASE_URL || new URL(req.url).origin;
-  const approveLink = `${baseUrl}/a/approve?token=${approveRaw}`;
-  const rejectLink = `${baseUrl}/a/reject?token=${rejectRaw}`;
+    const created = await prisma.request.create({
+      data: {
+        periodId,
+        date,
+        startTime,
+        endTime,
+        customerName,
+        customerEmail,
+        customerPhone,
+        customerNote: customerNote || null,
+        status: "PENDING",
+        publicCode,
+      },
+    });
 
-  // admin email
-  await sendEmail({
-    to: process.env.ADMIN_EMAIL!,
-    subject: `Νέο αίτημα ραντεβού: ${date} ${startTime}`,
-    html: `
-      <p>Νέο αίτημα ραντεβού.</p>
-      <p><b>Πελάτης:</b> ${customerName}<br/>
-      <b>Email:</b> ${customerEmail}<br/>
-      <b>Τηλέφωνο:</b> ${customerPhone}<br/>
-      <b>Ημερομηνία/Ώρα:</b> ${date} ${startTime}–${endTime}<br/>
-      <b>Σημείωση:</b> ${customerNote || "-"} </p>
-      <p>✅ <a href="${approveLink}">Έγκριση</a><br/>
-      ❌ <a href="${rejectLink}">Απόρριψη</a></p>
-    `,
-  });
+    const approveRaw = makeToken();
+    const rejectRaw = makeToken();
 
-  // customer pending email
-  await sendEmail({
-    to: customerEmail,
-    subject: "Λάβαμε το αίτημά σας για ραντεβού (σε αναμονή έγκρισης)",
-    html: `
-      <p>Γεια σας ${customerName},</p>
-      <p>Λάβαμε το αίτημά σας και είναι <b>σε αναμονή έγκρισης</b>.</p>
-      <p><b>Ημερομηνία/Ώρα:</b> ${date} ${startTime}–${endTime}</p>
-      <p>Θα λάβετε νέο email μόλις εγκριθεί ή αν χρειαστεί αλλαγή.</p>
-    `,
-  });
+    const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24 * 7); // 7 days
 
-  return NextResponse.json({ ok: true, publicCode });
+    await prisma.actionToken.createMany({
+      data: [
+        {
+          requestId: created.id,
+          action: "APPROVE",
+          tokenHash: hashToken(approveRaw),
+          expiresAt,
+        },
+        {
+          requestId: created.id,
+          action: "REJECT",
+          tokenHash: hashToken(rejectRaw),
+          expiresAt,
+        },
+      ],
+    });
+
+    const baseUrl = process.env.PUBLIC_BASE_URL || new URL(req.url).origin;
+
+    const approveLink = `${baseUrl}/a/approve?token=${approveRaw}`;
+    const rejectLink = `${baseUrl}/a/reject?token=${rejectRaw}`;
+    const statusLink = `${baseUrl}/status/${publicCode}`;
+
+    const notifyTo = process.env.NOTIFY_EMAIL || "sofiatzanetopoulou@sim.gr";
+
+    await sendEmail({
+      to: notifyTo,
+      subject: `Νέο αίτημα ραντεβού: ${date} ${startTime}`,
+      html: `
+        <h2>Νέο αίτημα ραντεβού</h2>
+        <p><b>Πελάτης:</b> ${customerName}</p>
+        <p><b>Email:</b> ${customerEmail}</p>
+        <p><b>Τηλέφωνο:</b> ${customerPhone}</p>
+        <p><b>Ημερομηνία/Ώρα:</b> ${date} ${startTime}–${endTime}</p>
+        ${customerNote ? `<p><b>Σημείωση:</b> ${customerNote}</p>` : ""}
+
+        <p style="margin-top:16px;">
+          <a href="${approveLink}" style="display:inline-block;padding:10px 14px;border-radius:8px;background:#111;color:#fff;text-decoration:none;">✅ ΕΓΚΡΙΣΗ</a>
+          <a href="${rejectLink}" style="display:inline-block;padding:10px 14px;border-radius:8px;background:#eee;color:#111;text-decoration:none;margin-left:8px;">❌ ΑΠΟΡΡΙΨΗ</a>
+        </p>
+
+        <p style="margin-top:16px;">
+          <a href="${statusLink}">Άνοιγμα κατάστασης αιτήματος</a>
+        </p>
+      `,
+    });
+
+    return NextResponse.json({ ok: true, publicCode });
+  } catch (e: any) {
+    console.error("POST /api/requests failed:", e?.message || e);
+    return NextResponse.json({ ok: false, error: "Server error" }, { status: 500 });
+  }
 }
