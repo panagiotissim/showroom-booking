@@ -1,4 +1,3 @@
-cat > app/a/approve/route.ts <<'EOF'
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { hashToken } from "@/lib/tokens";
@@ -68,4 +67,3 @@ export async function GET(req: Request) {
   const baseUrl = process.env.PUBLIC_BASE_URL || new URL(req.url).origin;
   return NextResponse.redirect(`${baseUrl}/status/${r.publicCode}`);
 }
-EOF

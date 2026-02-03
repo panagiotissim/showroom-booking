@@ -1,4 +1,3 @@
-cat > "app/status/[code]/page.tsx" <<'EOF'
 import { prisma } from "@/lib/db";
 
 export default async function StatusPage({ params }: { params: { code: string } }) {
@@ -28,4 +27,3 @@ export default async function StatusPage({ params }: { params: { code: string } 
     </div>
   );
 }
-EOF
