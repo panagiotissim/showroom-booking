@@ -1,0 +1,75 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum RequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum TokenAction {
+  APPROVE
+  REJECT
+}
+
+model Period {
+  id             String   @id @default(cuid())
+  name           String
+  isActive       Boolean  @default(false)
+  allowedDates   Json     // ["2026-11-05","2026-11-06",...]
+  openTime       String   @default("08:00")
+  closeTime      String   @default("20:00")
+  slotMinutes    Int      @default(120)
+  timezone       String   @default("Europe/Athens")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  requests       Request[]
+}
+
+model Request {
+  id              String        @id @default(cuid())
+  publicCode       String        @unique
+  periodId         String
+  period           Period        @relation(fields: [periodId], references: [id])
+
+  date            String        // "YYYY-MM-DD"
+  startTime       String        // "HH:MM"
+  endTime         String        // "HH:MM"
+
+  customerName    String
+  customerEmail   String
+  customerPhone   String
+  customerNote    String?
+
+  status          RequestStatus @default(PENDING)
+
+  approvedAt      DateTime?
+  rejectedAt      DateTime?
+
+  calendarEventId String?
+
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  tokens          ActionToken[]
+}
+
+model ActionToken {
+  id          String      @id @default(cuid())
+  requestId   String
+  request     Request     @relation(fields: [requestId], references: [id])
+
+  action      TokenAction
+  tokenHash   String      @unique
+  expiresAt   DateTime
+  usedAt      DateTime?
+
+  createdAt   DateTime    @default(now())
+}
