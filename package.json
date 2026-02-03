@@ -9,8 +9,11 @@
     "resend": "^6.9.1"
   },
   "devDependencies": {
+    "@types/node": "^25.2.0",
     "@types/nodemailer": "^7.0.9",
-    "prisma": "^6.19.2"
+    "@types/react": "^19.2.10",
+    "prisma": "^6.19.2",
+    "typescript": "^5.9.3"
   },
   "scripts": {
     "dev": "next dev",
