@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/db";
-import { hashToken } from "@/lib/tokens";
-import { sendEmail } from "@/lib/email";
+import { prisma } from "../../../lib/db";
+import { hashToken } from "../../../lib/tokens";
+import { sendEmail } from "../../../lib/email";
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/db";
-import { makeToken, hashToken } from "@/lib/tokens";
-import { sendEmail } from "@/lib/email";
+import { prisma } from "../../../lib/db";
+import { makeToken, hashToken } from "../../../lib/tokens";
+import { sendEmail } from "../../../lib/email";
 
 function makePublicCode() {
   return Math.random().toString(36).slice(2, 10);

@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/db";
+import { prisma } from "../../../lib/db";
 
 export default async function StatusPage({ params }: { params: { code: string } }) {
   const r = await prisma.request.findUnique({
